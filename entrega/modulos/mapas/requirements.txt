@@ -1,0 +1,26 @@
+# Dependencias del módulo de mapas. Probado con Python 3.14.6.
+#
+#   pip install -r modulos/mapas/requirements.txt
+#
+# Están fijadas a versión exacta a propósito: el reto exige poder reproducir
+# los resultados, y basta con que una librería cambie de comportamiento para
+# que el índice deje de ser el mismo.
+
+# --- Generar los fragmentos (los tres pasos del README) -------------------
+mapbox-vector-tile==2.2.0     # abrir las teselas .pbf
+protobuf==6.33.6              # lo necesita mapbox-vector-tile por dentro
+pandas==3.0.5                 # tabla de municipios
+pyarrow==25.0.1               # guardarla en .parquet
+numpy==2.5.2
+openpyxl==3.1.5               # leer el inventario de ADL (.xlsx)
+transformers==5.15.0          # contar num_tokens con el tokenizador real
+tokenizers==0.22.2
+
+# --- Integrar los fragmentos en la base vectorial (integrar_mapas.py) -----
+# Solo hacen falta para este paso. Si únicamente vas a generar los
+# fragmentos, puedes saltarte esta sección: pesan bastante más.
+faiss-cpu==1.15.0
+sentence-transformers==5.7.0
+torch==2.13.0
+scikit-learn==1.9.0
+scipy==1.18.0
