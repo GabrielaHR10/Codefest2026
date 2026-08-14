@@ -27,7 +27,7 @@ import networkx as nx
 from tqdm import tqdm
 from transformers import pipeline
 
-DEFAULT_BASE_DIR = Path(__file__).resolve().parent.parent  # entrega/
+DEFAULT_BASE_DIR = Path(__file__).resolve().parents[2] / "entrega"
 DEFAULT_VECTOR_DIR = DEFAULT_BASE_DIR / "base_vectorial"
 DEFAULT_OUTPUT_GRAPH = DEFAULT_BASE_DIR / "grafo" / "grafo.graphml"
 

@@ -290,8 +290,9 @@ def consultar(pregunta: str, grafo: nx.DiGraph, ner_modelo) -> dict:
 def main():
     """CLI interactiva: pide la ruta del grafo y la pregunta por
     input(), y muestra el resultado de consultar() como JSON."""
-    ruta_grafo = input("Ruta de grafo.graphml (Enter para 'grafo/grafo.graphml'): ").strip()
-    ruta_grafo = Path(ruta_grafo) if ruta_grafo else Path("grafo/grafo.graphml")
+    por_defecto = Path(__file__).resolve().parents[2] / "entrega" / "grafo" / "grafo.graphml"
+    ruta_grafo = input(f"Ruta de grafo.graphml (Enter para '{por_defecto}'): ").strip()
+    ruta_grafo = Path(ruta_grafo) if ruta_grafo else por_defecto
     if not ruta_grafo.exists():
         print(f"Error: no se encontró '{ruta_grafo}'")
         return

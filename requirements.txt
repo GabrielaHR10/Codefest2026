@@ -1,0 +1,21 @@
+# Dependencias para reproducir resultados.jsonl con entrega/generador.py.
+# Versiones fijadas a las usadas para producir la entrega: el reto exige poder
+# reproducir los resultados y un cambio de versión del encoder cambia los
+# vectores y, con ellos, el ranking.
+
+torch==2.13.0
+sentence-transformers==5.6.1
+transformers==5.13.1
+faiss-cpu==1.15.0
+numpy==1.26.4
+
+# Opcional: solo hace falta si se le pasa a generador.py el PDF de consultas
+# en vez del .txt ya extraído.
+pypdf==6.16.0
+
+# Opcional: para reconstruir la base de conocimiento desde cero. No hace falta
+# para generar los resultados a partir de los índices ya entregados.
+#   networkx==3.3      -> construcción del grafo (modulos/grafo/)
+#   gliner==0.2.28     -> NER del grafo (modulos/grafo/)
+#   reportlab==5.0.0   -> informe técnico (modulos/informe/)
+#   mapbox-vector-tile, pandas, pyarrow, openpyxl -> modulos/mapas/requirements.txt
