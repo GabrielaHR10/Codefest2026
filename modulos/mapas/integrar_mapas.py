@@ -7,10 +7,17 @@ anadir vectores y lineas en el mismo orden. Si no, el sistema empieza a
 devolver el texto equivocado sin dar ningun error.
 
 Uso:
-    python integrar_mapas.py <dir_encoder> [metadata_mapas.jsonl]
+    python integrar_mapas.py <dir_encoder> [metadata_mapas.jsonl] [modelo]
 
 El segundo argumento es opcional, por defecto busca metadata_mapas.jsonl en el
 directorio actual, que es donde lo deja generador_chunks.py.
+
+El tercero solo hace falta si el equipo anade un segundo encoder. Hay un indice
+por modelo, no por modulo: todos los chunks del corpus van dentro del mismo
+indice, y lo que cambia entre carpetas es con que modelo se codificaron.
+
+    python integrar_mapas.py entrega/base_vectorial/encoder_e5-large \\
+        metadata_mapas.jsonl intfloat/multilingual-e5-large
 """
 
 import json
@@ -21,9 +28,14 @@ from pathlib import Path
 MODELO = "BAAI/bge-m3"
 LOTE = 16
 
-# BGE-m3 no necesita prefijo en los pasajes, la familia E5 si pide 'passage: '.
-# Si se cambia de encoder hay que revisarlo: unos chunks con prefijo y otros
-# sin el acaban en zonas distintas del espacio.
+# BGE-m3 no necesita prefijo en los pasajes, pero la familia E5 exige
+# 'passage: ' y sin el rinde bastante peor, sin dar ningun sintoma. Si se anade
+# un encoder, hay que poner aqui el prefijo que le toque y usar el mismo que
+# usaron los demas chunks de ese indice.
+PREFIJOS = {
+    "intfloat/multilingual-e5-large": "passage: ",
+    "intfloat/multilingual-e5-base": "passage: ",
+}
 PREFIJO_PASAJE = ""
 
 
@@ -38,6 +50,8 @@ def main():
 
     dir_encoder = Path(sys.argv[1])
     ruta_mapas = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("metadata_mapas.jsonl")
+    modelo_nombre = sys.argv[3] if len(sys.argv) > 3 else MODELO
+    prefijo = PREFIJOS.get(modelo_nombre, PREFIJO_PASAJE)
     if not ruta_mapas.exists():
         sys.exit(f"No existe {ruta_mapas}.\n"
                  f"Genera primero los chunks con los tres pasos del README.")
@@ -83,14 +97,16 @@ def main():
     except ImportError:
         sys.exit("Falta el encoder: pip install sentence-transformers")
 
-    print(f"\nCargando {MODELO}")
-    modelo = SentenceTransformer(MODELO)
+    print(f"\nCargando {modelo_nombre}")
+    if prefijo:
+        print(f"Prefijo de pasaje: {prefijo!r}")
+    modelo = SentenceTransformer(modelo_nombre)
     dim = modelo.get_sentence_embedding_dimension()
     if dim != index.d:
         sys.exit(f"Se detiene: el encoder da vectores de {dim} dimensiones y el "
                  f"indice espera {index.d}, no es el mismo encoder.")
 
-    textos = [PREFIJO_PASAJE + c["texto"] for c in nuevos]
+    textos = [prefijo + c["texto"] for c in nuevos]
     print(f"Codificando {len(textos)} chunks")
     vecs = modelo.encode(textos, batch_size=LOTE, show_progress_bar=True,
                          convert_to_numpy=True, normalize_embeddings=True)
