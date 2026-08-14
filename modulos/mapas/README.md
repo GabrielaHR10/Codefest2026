@@ -17,7 +17,20 @@ que se junta con los fragmentos del resto del corpus. **No construye el índice
 FAISS, ni el `generador.py`, ni el `resultados.jsonl`**: de eso se encarga el
 pipeline central, que llevan otras personas del equipo.
 
+> ## Este módulo se corre con `BAAI/bge-m3`
+>
+> Es el encoder con el que se genera y se verifica todo. Está fijado en la
+> constante `MODELO_ENCODER` de `generador_chunks.py` y **no hay que cambiarlo**
+> para producir los fragmentos.
+>
+> El equipo entrega **dos** encoders, así que los mismos 985 fragmentos tienen
+> que acabar en **los dos índices**: en el de `bge-m3` (ya están) y en el de
+> `multilingual-e5-base`. Eso no se hace regenerando los fragmentos con otro
+> modelo, sino codificando los mismos textos dos veces. Está explicado en
+> [Meter los fragmentos en la base vectorial](#meter-los-fragmentos-en-la-base-vectorial).
+
 **Contenido:** [Cómo ejecutar](#cómo-ejecutar) · [Qué produce](#qué-produce) ·
+[Meter los fragmentos en la base vectorial](#meter-los-fragmentos-en-la-base-vectorial) ·
 [Diseño y decisiones](#diseño-y-decisiones) ·
 [Configuración](#configuración) · [Problemas frecuentes](#problemas-frecuentes)
 
@@ -215,10 +228,68 @@ la Sección 1.4 del documento técnico. Su contenido ya vive dentro de
 `entrega/base_vectorial/encoder_bge-m3/metadata.jsonl`; tener dos copias del
 mismo texto solo lleva a que acaben diciendo cosas distintas.
 
-El paso que mete estos fragmentos en la base vectorial está en
-[`INTEGRACION.md`](INTEGRACION.md). **No es un `cat`**: hay que codificarlos y
-añadirlos al índice FAISS en el mismo orden, o el sistema empieza a devolver
-el texto equivocado sin avisar.
+---
+
+## Meter los fragmentos en la base vectorial
+
+### Por qué no vale juntar los archivos con `cat`
+
+FAISS **no guarda los textos**. Guarda vectores numerados del 0 al N−1 y nada
+más. El `metadata.jsonl` es lo único que dice a qué fragmento corresponde cada
+número, y la correspondencia es **posicional**: la línea 42 describe al vector
+42.
+
+Si añades 985 líneas de metadata sin añadir sus 985 vectores, esas líneas se
+quedan sin nada detrás. El sistema no falla ni avisa: simplemente empieza a
+devolver el texto equivocado para cada resultado. Es el error más común de este
+tipo de pipeline y el más difícil de detectar, porque todo parece funcionar.
+
+### Los dos índices
+
+Se entregan dos encoders, y **cada índice tiene que contener todo el corpus**.
+Lo que cambia entre carpetas no son los fragmentos, sino con qué modelo se
+codificaron:
+
+```bash
+# 1. Generar los fragmentos (siempre con bge-m3, ver arriba)
+python decodificador_mvt.py "$CORPUS" municipios.parquet "$INDICE"
+python generador_chunks.py  municipios.parquet "$INDICE"
+
+# 2. Meterlos en el índice de bge-m3
+python integrar_mapas.py entrega/base_vectorial/encoder_bge-m3
+
+# 3. Meter LOS MISMOS textos en el índice de e5
+python integrar_mapas.py entrega/base_vectorial/encoder_multilingual_e5_base \
+    metadata_mapas.jsonl intfloat/multilingual-e5-base
+```
+
+El paso 3 no regenera nada: coge los mismos 985 textos y los vuelve a
+codificar con el otro modelo. El script aplica solo entonces el prefijo
+`passage: `, que la familia E5 exige y sin el cual recupera bastante peor sin
+dar ningún síntoma. Si las dimensiones no cuadran (bge-m3 son 1024, e5-base
+768), se niega a continuar en vez de meter vectores incompatibles.
+
+### Cómo saber que quedó bien
+
+Al terminar hace tres comprobaciones:
+
+```
+OK: 9886 vectores y 9886 lineas
+OK: las 8901 lineas previas conservan su posicion
+OK: 20 vectores al azar recuperan su propia linea
+```
+
+La tercera es la que importa: coge vectores al azar, los busca dentro del
+propio índice y comprueba que cada uno se encuentra a sí mismo. Si la metadata
+estuviera corrida aunque fuera una línea, esa prueba lo detecta.
+
+El script es idempotente, así que ejecutarlo dos veces no duplica nada, y deja
+copias `.bak` por si hay que volver atrás.
+
+### Estado
+
+En `encoder_bge-m3` ya están: 985 fragmentos en las posiciones 8901 a 9885, con
+9.886 vectores y 9.886 líneas alineados. **En el índice de e5 todavía no.**
 
 ---
 
@@ -321,9 +392,14 @@ hacen falta son un puñado de palabras fijas —seis países y cinco términos�
 las siglas (ELN, CV, PCC) son iguales en todos los idiomas. Es una tabla de
 constantes, no traducción automática.
 
-**9. Los tokens se cuentan con `BAAI/bge-m3`.** Es solo para rellenar el campo
-`num_tokens`; aquí no se generan vectores. Si el equipo acaba usando otro
-modelo, hay que cambiar `MODELO_ENCODER` y repetir el paso 2.
+**9. El encoder del módulo es `BAAI/bge-m3`.** En estos tres pasos se usa solo
+para rellenar `num_tokens`; los vectores se crean después, al integrar.
+
+Que el equipo entregue también un índice de `multilingual-e5-base` no cambia
+nada aquí: **los fragmentos se generan una sola vez y se codifican dos**, una
+por cada índice. `num_tokens` queda contado con bge-m3, que es correcto porque
+ese campo describe el fragmento tal como se guardó, y bge-m3 es el encoder de
+referencia del módulo.
 
 ---
 
@@ -334,7 +410,7 @@ Estas son las constantes que se pueden ajustar, todas al principio de
 
 | Constante | Por defecto | Qué controla |
 |---|---|---|
-| `MODELO_ENCODER` | `BAAI/bge-m3` | con qué modelo se cuentan los tokens. **Tiene que ser el mismo que use el equipo** |
+| `MODELO_ENCODER` | `BAAI/bge-m3` | **No cambiar.** Es el encoder del módulo; con él se cuentan los tokens y se generó todo lo verificado. Que además se entregue un índice de e5 no afecta a esto: los fragmentos se generan una sola vez y se codifican dos |
 | `FUENTE_CON_RUTA` | `True` | si `fuente` lleva la ruta completa o solo el nombre del archivo |
 | `ANCLAJE_EN` | `True` | si se añade la frase final en inglés |
 | `APERTURA_PT` | `True` | si los municipios de Brasil abren en portugués |
