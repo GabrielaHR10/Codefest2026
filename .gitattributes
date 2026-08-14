@@ -1,3 +1,10 @@
+# Los artefactos binarios y los almacenes de metadata pesan cientos de MB, así
+# que van por Git LFS. Tras clonar: git lfs install && git lfs pull
 *.faiss filter=lfs diff=lfs merge=lfs -text
 *.jsonl filter=lfs diff=lfs merge=lfs -text
 *.graphml filter=lfs diff=lfs merge=lfs -text
+
+# Excepción: el archivo de resultados es el entregable principal y pesa poco.
+# Se versiona como texto normal para poder leerlo y revisarlo sin necesidad de
+# tener Git LFS instalado.
+entrega/resultados.jsonl -filter -diff -merge text
