@@ -53,7 +53,7 @@ python entrega/generador.py --dispositivo cpu    # sin GPU/MPS
 
 El corpus se repartió entre dos encoders complementarios (Sección 4.4), cada uno
 con su propio índice `IndexFlatIP` sobre vectores normalizados, que es
-exactamente similitud coseno (Sección 8.2):
+exactamente similitud coseno (Sección 8.2) :
 
 | Encoder | Dim. | Fragmentos | Partición del corpus |
 |---|---|---|---|
